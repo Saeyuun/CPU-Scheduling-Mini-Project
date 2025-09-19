@@ -5,7 +5,7 @@ def rr(processes, quantum):
     gantt = []
     waiting, turnaround, response = {}, {}, {}
     remaining = {pid: bt for pid, at, bt in processes}
-    first_response = {}
+    first_start = {}
 
     queue = deque()
     processes_sorted = sorted(processes, key=lambda x: x[1])
@@ -24,10 +24,11 @@ def rr(processes, quantum):
             continue
 
         pid = queue.popleft()
-        at = [p[1] for p in processes if p[0] == pid][0]
+        at = next(p[1] for p in processes if p[0] == pid)
 
-        if pid not in first_response:
-            first_response[pid] = time - at
+        # record first start time (for response)
+        if pid not in first_start:
+            first_start[pid] = time
 
         start = time
         slice_time = min(quantum, remaining[pid])
@@ -44,9 +45,10 @@ def rr(processes, quantum):
         if remaining[pid] > 0:
             queue.append(pid)
         else:
-            waiting[pid] = end - at - [p[2] for p in processes if p[0] == pid][0]
+            burst = next(p[2] for p in processes if p[0] == pid)
             turnaround[pid] = end - at
-            response[pid] = first_response[pid]
+            waiting[pid] = turnaround[pid] - burst
+            response[pid] = first_start[pid] - at
 
     avg_w = sum(waiting.values()) / n
     avg_t = sum(turnaround.values()) / n
@@ -54,8 +56,8 @@ def rr(processes, quantum):
 
     return {
         "gantt": gantt,
-        "waiting": list(waiting.values()),
-        "turnaround": list(turnaround.values()),
-        "response": list(response.values()),
-        "avg": (avg_w, avg_t, avg_r)
+        "waiting": waiting,
+        "turnaround": turnaround,
+        "response": response,
+        "avg": (avg_w, avg_t, avg_r),
     }
